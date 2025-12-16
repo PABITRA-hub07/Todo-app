@@ -24,6 +24,10 @@ app.get("/todos", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch todos" });
   }
 });
+app.get("/", (req, res) => {
+  res.send("Todo API is live");
+});
+
 
 app.post("/todos", async (req, res) => {
   try {
