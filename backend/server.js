@@ -1,5 +1,8 @@
 const express = require("express");
 const cors = require("cors");
+const mongoose = require("mongoose");
+const Todo = require("./models/Todo");
+require("dotenv").config();
 
 const app = express();
 
@@ -7,53 +10,66 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-//Data
-let todos = [];
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error(err));
 
 //Test route
-app.get("/todos", (req, res) => {
-  res.json(todos);
-});
-app.post("/todos", (req, res) => {
-  const text = req.body.text;
-
-  const newTodo = {
-    id: Date.now(),
-    text: text,
-    complete: false,
-  };
-
-  todos.push(newTodo);
-  res.status(201).json(newTodo);
-});
-
-app.put("/todos/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const todo = todos.find((t) => t.id === id);
-
-  if (!todo) {
-    return res.status(404).json({ message: "Todo not found" });
+app.get("/todos", async (req, res) => {
+  try {
+    const todos = await Todo.find();
+    res.json(todos);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch todos" });
   }
-
-  todo.completed = true;
-  res.json(todo);
 });
 
-app.delete("/todos/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.post("/todos", async (req, res) => {
+  try {
+    const todo = new Todo({
+      text: req.body.text,
+    });
 
-  const index = todos.findIndex((t) => t.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({ message: "Todo not found" });
+    const savedTodo = await todo.save();
+    res.status(201).json(savedTodo);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to create todo" });
   }
-
-  todos.splice(index, 1);
-  res.json({ message: "Todo deleted" });
 });
 
-const PORT = 5000;
+app.put("/todos/:id", async (req, res) => {
+  try {
+    const todo = await Todo.findById(req.params.id);
+
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+
+    todo.completed = true;
+    const updatedTodo = await todo.save();
+
+    res.json(updatedTodo);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update todo" });
+  }
+});
+
+app.delete("/todos/:id", async (req, res) => {
+  try {
+    const deletedTodo = await Todo.findByIdAndDelete(req.params.id);
+
+    if (!deletedTodo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+
+    res.json({ message: "Todo deleted" });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to delete todo" });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`server is running on ${PORT}`);
 });
